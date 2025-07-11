@@ -31,9 +31,7 @@ knitr::opts_knit$set(
 
 We expect that genes associated with infertility will be highly constrained
 
-Assess constraint using two metrics: LOEUF and lofpLI
-
-using table to constraints from gnomeAD
+Assess constraint using three metrics: pLI, LOEUF, and z-score using table to constraints from gnomeAD
 
 
 ### Libraries
@@ -47,11 +45,11 @@ library(ggpubr)
 ### 1. Read in the data
 ```{r}
 ## read in the table of constraints from gnomeAD
-gnomeAD_const <- read.table("/gpfs/gibbs/pi/tucci/pfr8/resources/gnomAD/v4.0.0/gnomad.v4.1.constraint_metrics.tsv", header = TRUE)
+gnomeAD_const <- read.table("/gnomAD/v4.0.0/gnomad.v4.1.constraint_metrics.tsv", header = TRUE)
 head(gnomeAD_const)
 
 ## read in table of genes of interest (infertility)
-genes_infert <- read.table("/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/infertility_analyses_2025/infertilityGeneList_unique.txt", header = FALSE)
+genes_infert <- read.table("infertilityGeneList_unique.txt", header = FALSE)
 colnames(genes_infert) <- c("gene", "type")
 ```
 
