@@ -30,7 +30,7 @@ Please see the README.md file in each folder for detailed information about the 
 - [Genetic Constraint](./genetic_constraint/README.md)
 - [Archaic Deserts](./ai_deserts/README.md)
 - [Selection Scans](./selection_scans/README.md)
-- [Linkage Disequilibrium](./linkage_disequilibrium/README.md)
+- [Linkage Disequilibrium](./ld/README.md)
 - [Allele Frequency](./allele_frequency/README.md)
 
 ## Contact
