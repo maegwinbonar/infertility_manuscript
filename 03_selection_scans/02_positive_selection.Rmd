@@ -1,0 +1,869 @@
+---
+title: "Depletion of positive selection"
+author: "Maegwin Bonar"
+date: "2025-02-12"
+output:
+  html_document:
+    highlight: breezedark
+    css:
+      - "styles.css"
+    toc: yes
+    toc_float: no
+    toc_depth: 5
+editor_options:
+  markdown:
+    wrap: 120
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval                        = FALSE,
+  echo                        = TRUE,
+  cache                       = TRUE, # tidy = TRUE,
+  class.output                = "bg-success"
+)
+knitr::opts_knit$set(
+  root.dir = rprojroot::find_rstudio_root_file()
+)
+```
+
+### Introduction
+
+We expect that genes associated with infertility will be underrepresented in positive selection scan hits
+
+We first need to adjust pFCS scores for FDR and then redo the selection values for the infertility genes
+
+Then we need to do a depletion test to measure depletion of positive selection in these genes
+
+Then we need to examine the positive selection hits we are getting (if any)
+
+
+### Libraries
+```{r, message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggpubr)
+library(qvalue)
+library(qqman)
+library(ggplot2)
+library(readr)
+library(data.table)
+library(ggrepel)
+```
+
+### 1. Quantile rank of FCS_X2
+
+We are going with Choin et al. who define outlier SNPs as those with an FCS among the 1% highest of the genome.
+
+Plot the pFCS scores
+
+```{r}
+### read in the data
+path_ww = "/gpfs/gibbs/pi/tucci/mpb63/WWPops_2024_FCS"
+path_oc = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
+
+tempoc <- list.files(path = path_oc, pattern = "*FCS.tsv", full.names = TRUE)
+tempww <- list.files(path = path_ww, pattern = "*FCS.tsv", full.names = TRUE)
+
+#temp_all <- c(tempww, tempoc)
+
+pfcs_plots <- function(full_df_path) {
+ name_plot <- gsub(pattern = "_PIBv1.*", "", basename(full_df_path))
+  full_df <- read_tsv(full_df_path, col_select = c(chr, start, end, population, FCS, log10_FCS, gene))
+  full_df <- na.omit(full_df)
+  
+  plot<-ggplot(data=full_df)+
+    geom_histogram(aes(x=FCS), binwidth = 0.01)+
+    ggtitle(name_plot)+
+    xlab("pFCS")+
+    theme_bw()
+  return(plot)
+}
+
+fcs_plots <- lapply(tempoc, pfcs_plots)
+fcs_plots_ww <- lapply(tempww, pfcs_plots)
+
+p<-ggarrange(plotlist = fcs_plots, ncol = 5, nrow = 4)
+ggsave("plots/pfcs_hist_OCE.png", width = 12, height = 10)
+
+p_EUR<-ggarrange(plotlist = fcs_plots_ww[21:29], ncol = 3, nrow = 3)
+ggsave("plots/pfcs_hist_EUR.png", width = 10, height = 8)
+
+p_CSA<-ggarrange(plotlist = fcs_plots_ww[1:10], ncol = 4, nrow = 3)
+ggsave("plots/pfcs_hist_CSA.png", width = 10, height = 8)
+
+p_EAS<-ggarrange(plotlist = fcs_plots_ww[11:20], ncol = 4, nrow = 3)
+ggsave("plots/pfcs_hist_EAS.png", width = 10, height = 8)
+
+save.image(file = "hist_pfcs.RData")
+
+```
+
+So based on the histograms of the p-values FDR correction isn't going to work. Going to work with Patrick and see what we can do about it. For now, we will simply use a stringent p-value for pFCS p=0.0001 moving forward.
+
+### 2. Manhattan plots of genes under positive selection
+
+After running run_plot_manhattan_Fcs_loop.R and run_plot_manhattan_Fcs_loop_OCE.R to generate Manhattan plots highlighting the genes under selection for each population we can group the plots into island groups for Oceania and worldwide regions.
+
+
+#### Island groups for Oceania
+```{r}
+path = "/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/infertility_analyses_2025/plots"
+temp <- list.files(path = path, pattern = "*manhattan.png", full.names = TRUE)
+
+#in (A) New Guinean, (B) New Hanover and (C) New Ireland populations.
+rl <- lapply(list(temp[25], temp[15],temp[19]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
+ggsave("plots/OCE_NewGuinean_NewHanover_NewIreland.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
+
+#in West New Britain populations.
+rl <- lapply(list(temp[14], temp[20],temp[17], temp[1],temp[18]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
+ggsave("plots/OCE_WNewBritain.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
+
+#in East New Britain and Bougainville populations.
+rl <- lapply(list(temp[2], temp[3],temp[21], temp[24]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
+ggsave("plots/OCE_ENewGBritain_Bougainville.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
+
+#in Solomon Islands populations.
+rl <- lapply(list(temp[27], temp[16],temp[4], temp[23], temp[26]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
+ggsave("plots/OCE_SolomonIslands.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
+
+```
+
+#### Central South Asia
+```{r}
+#CSA all 
+rl <- lapply(list(temp[5], temp[6],temp[7], temp[8], temp[9],temp[10],
+                  temp[11], temp[12],temp[13],temp[14]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =4))
+ggsave("plots/CSA_manhattan_all.png", p1, width = 15, height = 4, dpi = 300, limitsize = FALSE)
+
+```
+
+#### East Asia
+```{r}
+#CSA all 
+rl <- lapply(list(temp[15], temp[16],temp[17], temp[18], temp[19],temp[20],
+                  temp[21], temp[22],temp[23],temp[24]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =4))
+ggsave("plots/EAS_manhattan_all.png", p1, width = 15, height = 4, dpi = 300, limitsize = FALSE)
+
+```
+
+#### European
+```{r}
+#CSA all 
+rl <- lapply(list(temp[25], temp[26],temp[27], temp[28], temp[29],temp[30],
+                  temp[31], temp[32],temp[33]), png::readPNG)
+gl <- lapply(rl, grid::rasterGrob)
+p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =3))
+ggsave("plots/EUR_manhattan_all.png", p1, width = 10, height = 4, dpi = 300, limitsize = FALSE)
+
+```
+
+### Heatmaps
+
+```{r}
+#############
+# HEATMAP
+#############
+
+library(forcats)
+
+load("merged-windows2_10kb_heatmap_WWpop_FCS_0001.Rdata")
+
+#merged_df2
+
+merged_df_window2 <- merged_df_key_genes %>%
+  rowwise() %>%
+  mutate(new_coordinates = paste(chr, new_start2, new_end2, sep = ":", collapse = "-")) %>%
+  ungroup()
+
+# make NAs in log10_FCS -Inf
+merged_df_window2$log10_FCS[is.na(merged_df_window2$log10_FCS)] <- 0
+
+# color categories based on log10_FCS values
+merged_df_window2$p_val <- cut(merged_df_window2$log10_FCS,
+                        breaks = c(-Inf, 4, 5, Inf),
+                        labels = c("<3",">4",">5"),
+                        right = FALSE)
+
+#merged_df2$population <- gsub("\\bEA\\b","EAS", merged_df2$population)
+#merged_df2$population <- gsub("\\bISA\\b","ISEA", merged_df2$population)
+
+#merged_df2$population <- factor(merged_df2$population, levels = c("EAS","ISEA","Oceania","Sepik-Goroka","Kove","Nakanai-Mangseng","Mamusi","Ata","Melamela","Baining-Kagat","Baining-Mali","Lavongai-Mussau","Nailik-Notsi-Tigak","Saposa","Nasioi","Vella-Lavella","Malaita","Bellona-Rennell","Santa-Cruz","Tikopia"))
+
+# merged_df_window2$population <- fct_rev(factor(merged_df_window2$population, levels = c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima","CSA", 
+# "CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian","Oceania", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella")))
+# 
+# labels <- c("AMR", "AMR-Colombian-Karitiana-Surui","AMR-Pima", "AMR-Maya","CSA",
+# "CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR",
+# "EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "OCN",
+#                                                                   "OCN-Ata","OCN-Baining-Kagat","OCN-Baining-Mali","OCN-Bellona-Rennell","OCN-Kove","OCN-Lavongai-Mussau","OCN-Malaita","OCN-Mamusi","OCN-Melamela","OCN-Nailik-Notsi-Tigak","OCN-Nakanai-Mangseng","OCN-Nasioi","OCN-Santa-Cruz","OCN-Saposa","OCN-Sepik-Goroka","OCN-Tikopia","OCN-Vella-Lavella")
+
+merged_df_window2$population <- fct_rev(factor(merged_df_window2$population, levels = c("EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian","CSA", 
+"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut","AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima", "Oceania", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella")))
+
+labels <- c("EUR",
+"EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian","CSA",
+"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "AMR", "AMR-Colombian-Karitiana-Surui","AMR-Pima", "AMR-Maya", "OCN",
+                                                                  "OCN-Ata","OCN-Baining-Kagat","OCN-Baining-Mali","OCN-Bellona-Rennell","OCN-Kove","OCN-Lavongai-Mussau","OCN-Malaita","OCN-Mamusi","OCN-Melamela","OCN-Nailik-Notsi-Tigak","OCN-Nakanai-Mangseng","OCN-Nasioi","OCN-Santa-Cruz","OCN-Saposa","OCN-Sepik-Goroka","OCN-Tikopia","OCN-Vella-Lavella")
+
+#separate by \n each 8 genes
+merged_df_window2$gene <- gsub("((?:\\w+,\\s*){5}\\w+),", "\\1,\n", merged_df_window2$gene)
+
+# Sort again
+merged_df_window3 <- merged_df_window2 %>% 
+  arrange(chr, new_start2, new_end2)
+
+################################################
+
+# Create a separate dataframe for organizing gene labels on the right
+gene_labels_df <- merged_df_window3 %>%
+  dplyr::filter(population == unique(merged_df_window3$population)[1]) %>%
+  arrange(new_start2)
+
+# HEATMAP
+heatmap_plot2 <- ggplot(merged_df_window3, aes(x = population, y = forcats::fct_rev(factor(new_coordinates, levels = rev(unique(new_coordinates)))), fill = p_val)) +
+  #geom_tile(color = "black", size = 0.3) +
+  scale_fill_manual(
+    values = c(
+      "<3" = "white",
+      ">4" = "#939598",#"5384E4",
+      ">5" = "#424143"#"#65B8E6",  
+      #">5" = "#CAE11F"#"#72E6E2"
+    ),
+    labels = c(
+      "<3" = ">0.001",
+      #">3" = "<0.001",
+      ">4" = "<0.0001",
+      ">5" = "<0.00001"
+    )
+  ) +
+  scale_x_discrete(labels= rev(labels), position = "top")+
+  labs(fill = expression(italic("p")[FCS])) +
+  labs(x = "", y = "") +
+  theme_void() +
+  theme(
+    #plot.title = element_text(size = 14),
+    axis.text.y = element_text(hjust = 0, size = 10, vjust = 0.5),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =8),
+    axis.text.x.bottom = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    axis.text.x.top = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    axis.text.y.left = element_text(angle = 90, vjust = 0.5, hjust = 1),  # Rotate gene labels vertically
+    plot.margin = margin(0.75, 0.5, 0.5, 0.5, "cm"),
+    legend.box.spacing = margin(10)
+  )
+
+# Organize the gene label on the right 
+heatmap_plot2 <- heatmap_plot2 +
+  geom_tile(color = "black", size = 0.1) +  
+  geom_text(
+    data = gene_labels_df,
+    aes(x = population, y = factor(new_coordinates, levels = unique(new_coordinates)), label = gene),
+    #nudge_x = 32,
+    nudge_x = 34,
+    show.legend = FALSE,
+    hjust = 0,
+    vjust = 0.5, 
+    size = 2.5,
+    angle = 90,
+  ) + coord_cartesian(clip = "off") +coord_flip()
+
+print(heatmap_plot2)
+
+ggsave("plots/infertility_genes_10kb_heatmap_WWpops_F_0001_new2.pdf", heatmap_plot2, width = 11, height = 10, dpi = 300, limitsize = FALSE)
+
+## save the genes that have hits for locuszoom plots
+infertility_F0001 <- unique(gene_labels_df$gene)
+write.table(infertility_F0001, "infertility_genes_FCS_0.0001.tsv", quote = FALSE, col.names = FALSE, row.names = FALSE)
+
+## save gene list per region for enrichment analysis
+infertility_F0001_regions <- merged_df2[merged_df2$p0.0001==TRUE,]
+write.table(infertility_F0001_regions, "infertility_genes_regions_FCS_0.0001.tsv", quote = FALSE, col.names = FALSE, row.names = FALSE)
+
+```
+
+```{r, message=FALSE}
+path1 = "/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/WWPops_bed_files"
+path2 = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
+
+temp1 <- list.files(path = path1, pattern = "*0.0001.tsv", full.names = TRUE)
+temp2 <- list.files(path = path2, pattern = "*0.0001.tsv", full.names = TRUE)
+
+temp3 <- c(temp1, temp2)
+
+data_list <- list()
+
+#arch <- "Neandertal"
+
+for (i in 1:length(temp3)) {
+  name <- gsub(pattern = ".tsv", "", basename(temp3[i]))
+  df <- read_tsv(temp3[[i]])
+  df <- df %>%
+    select(chr, start, end, population, FCS, log10_FCS, gene)
+  df <- na.omit(df)
+  #df <- df %>%
+  # filter(str_detect(TractID, arch))
+  data_list[[i]] <- df
+}
+
+all_f0001 <- do.call("rbind", data_list)
+
+# list of all infertility genes
+infert_genes_all <- read.table("infertilityGeneList_unique.txt")
+colnames(infert_genes_all) <- c("gene","cohort")
+
+all_f0001$population <- factor(all_f0001$population, levels = c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima","CSA", 
+"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","Oceania", "MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella"))
+
+labels <- c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya","AMR-Pima", "CSA",
+"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR",
+"EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "OCN",
+                                                                  "OCN-Ata","OCN-Baining-Kagat","OCN-Baining-Mali","OCN-Bellona-Rennell","OCN-Kove","OCN-Lavongai-Mussau","OCN-Malaita","OCN-Mamusi","OCN-Melamela","OCN-Nailik-Notsi-Tigak","OCN-Nakanai-Mangseng","OCN-Nasioi","OCN-Santa-Cruz","OCN-Saposa","OCN-Sepik-Goroka","OCN-Tikopia","OCN-Vella-Lavella")
+
+
+genes_f0001 <- all_f0001 %>%
+    filter(gene %in% infert_genes_all$gene)
+
+
+plot<-ggplot(data=genes_f0001, aes(x=gene))+
+  geom_bar()+
+  #facet_wrap(~population)+
+  xlab("candidate infertility genes")+
+  ylab("count of outlier windows")+
+  geom_text(stat = 'count', aes(label = stat(count), vjust = -0.2), size = 3)+
+  theme_bw()
+plot
+
+ggsave("plots/pFCS_0001_hist1.pdf", plot, width = 12, height = 6, dpi = 300, limitsize = FALSE)
+
+library(viridis)
+
+plot2<-ggplot(data=genes_f0001, aes(x=gene, fill=population))+
+  geom_bar()+
+  xlab("candidate infertility genes")+
+  ylab("count of outlier windows")+
+  #scale_fill_discrete(labels = labels)+
+  scale_fill_viridis(discrete = T) +
+  #geom_text(stat = 'count', position = "stack", vjust = -0.2, aes(label = stat(count)), size = 3)+
+  theme_bw()
+plot2
+
+ggsave("plots/pFCS_0001_hist2.pdf", plot2, width = 16, height = 6, dpi = 300, limitsize = FALSE)
+
+plot3<-ggplot(data=genes_f0001, aes(x=population, fill=gene))+
+  geom_bar()+
+  xlab("")+
+  ylab("count of outlier windows")+
+  #scale_fill_discrete(labels = labels)+
+  scale_fill_viridis(discrete = T) +
+  #geom_text(stat = 'count', position = "stack", vjust = -0.2, aes(label = stat(count)), size = 3)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =10))
+plot3
+ggsave("plots/pFCS_0001_hist3.pdf", plot3, width = 10, height = 6, dpi = 300, limitsize = FALSE)
+
+```
+
+
+### Under-representation Analysis
+
+We will do an over/under-representation analysis to determine if infertility genes are under-represented in genes identified as being under positive selection
+
+x = infertility genes under selection
+
+m = all genes under selection
+
+n = genes not under selection
+
+k = all infertility genes
+
+We will do this by region, looking at OCE, ESA, CSA, and EUR separately
+
+```{r}
+
+# list of genes under selection by region
+infert_genes_FCS <- read.table("infertility_genes_regions_FCS_0.0001.tsv", sep = " ")
+colnames(infert_genes_FCS) <- c("chr", "start", "end","pop", "gene", "log10_FCS", "p_0.0001")
+
+# list of all infertility genes
+infert_genes_all <- read.table("infertilityGeneList_unique.txt")
+colnames(infert_genes_all) <- c("gene", "type")
+
+### Necessary functions
+get_genes_FCS <- function(df_path){
+  temp_df <- read_tsv(df_path, col_select = c(gene))
+  return(temp_df)
+}
+
+# assume `genes`, `gene_set` and `universe` have the same gene ID type
+ora_single = function(genes, gene_set, universe) {
+    n_universe = length(universe)
+
+    genes = intersect(genes, universe)
+    gene_set = intersect(gene_set, universe)
+
+    x = length(intersect(genes, gene_set)) # infertility genes in the gene set (under selection)
+    m = length(gene_set)  # total genes in the gene set under selection
+    n = n_universe - m    # total genes not in the gene set not under selection
+    k = length(genes)     # total infertility genes
+
+    phyper(x - 1, m, n, k, lower.tail = FALSE)
+}
+
+## under representation
+ura_single = function(genes, gene_set, universe) {
+    n_universe = length(universe)
+
+    genes = intersect(genes, universe)
+    gene_set = intersect(gene_set, universe)
+
+    x = length(intersect(genes, gene_set)) # infertility genes in the gene set under selection
+    m = length(gene_set)  # total genes in the gene set under selection
+    n = n_universe - m    # total genes not in the gene set not under selection
+    k = length(genes)     # total infertility genes
+
+    phyper(x, m, n, k, lower.tail = TRUE)
+}
+
+
+```
+
+
+#### Oceania
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
+temp <- list.files(path = path, pattern = "*0.0001.tsv", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+OCE_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('OCE', pop))
+
+# remove duplicates and take only gene column
+x <- OCE_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_oce <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_oce <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+#### CSA
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+temp <- list.files(path = path, pattern = "^CSA.*\\_0.0001.tsv$", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+CSA_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('CSA', pop))
+
+# remove duplicates and take only gene column
+x <- CSA_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_csa <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_csa <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+#### EAS
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+temp <- list.files(path = path, pattern = "^EAS.*\\_0.0001.tsv$", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+EAS_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('EAS', pop))
+
+# remove duplicates and take only gene column
+x <- EAS_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_eas <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_eas <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+#### EUR
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+temp <- list.files(path = path, pattern = "^EUR.*\\_0.0001.tsv$", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+EUR_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('EUR', pop))
+
+# remove duplicates and take only gene column
+x <- EUR_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_eur <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_eur <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+#### AMR
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/selection-scans/WW_pops_FCS"
+temp <- list.files(path = path, pattern = "^AMR.*\\_0.0001.tsv$", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+AMR_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('AMR', pop))
+
+# remove duplicates and take only gene column
+x <- AMR_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_amr <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_amr <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+#### MDE
+```{r, message=FALSE}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes under positive selection
+# get all .FCS_0.0001.tsv files for all populations
+path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+temp <- list.files(path = path, pattern = "^MDE.*\\_0.0001.tsv$", full.names = TRUE)
+
+df_list <- lapply(temp, get_genes_FCS)
+
+gene_set<- do.call(rbind, df_list) %>%
+  separate_rows(gene, sep = ",") %>%
+  distinct(gene)
+
+### as a check, the intersection of genes and gene_set should be x
+MDE_genes_FCS <- infert_genes_FCS %>%
+  filter(grepl('MDE', pop))
+
+# remove duplicates and take only gene column
+x <- MDE_genes_FCS %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes, gene_set)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_mde <- ora_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+ura_mde <- ura_single(genes = genes$gene, gene_set = gene_set$gene, universe = universe$gene)
+
+```
+
+
+### AI deserts
+
+Use deserts from Sankararaman et al. 2016
+
+Intersect Sankararaman et al. 2016 files with genecode bed files
+```{bash}
+for f in $(ls *.bed | cut -d '.' -f 1 | uniq); do
+bedtools intersect -wa -wb -a ${f}.bed -b /gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed > ${f}_intersect_genes.bed
+done
+```
+
+Genes
+Sankararaman et al. 2016
+Only intersected with regions from Deserts from Sankararaman et al. 2016 
+ 
+```{bash}
+for f in $(ls *deserts.bed | cut -d '.' -f 1 | uniq); do
+bedtools intersect -wa -wb -a ${f}.bed -b /gpfs/gibbs/pi/tucci/mpb63/infertility_2024/infertility_analyses_2025/infertility_genes.bed > infertility_gene_intersect/${f}_intersect_infertilitygenes_2025.bed
+done
+```
+
+
+In this case we will check whether genes associated with infertility are over-represented in genes overlapping with AI deserts
+
+```{r}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes in AI deserts NEA and DEA
+gene_set_all<- read.table("/gpfs/gibbs/pi/tucci/mpb63/AI_deserts/Sankararaman_2016_DEN_NEA_deserts_intersect_genes.bed", header = FALSE)
+colnames(gene_set_all) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+gene_set_den<- read.table("/gpfs/gibbs/pi/tucci/mpb63/AI_deserts/Sankararaman_2016_DEN_deserts_intersect_genes.bed", header = FALSE)
+colnames(gene_set_den) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+gene_set_nea<- read.table("/gpfs/gibbs/pi/tucci/mpb63/AI_deserts/Sankararaman_2016_NEA_deserts_intersect_genes.bed", header = FALSE)
+colnames(gene_set_nea) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+## remove duplicates
+gene_set_all <- gene_set_all %>%
+  distinct(gene)
+
+gene_set_den <- gene_set_den %>%
+  distinct(gene)
+
+gene_set_nea <- gene_set_nea %>%
+  distinct(gene)
+
+### universe - all genes
+universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_ai_all <- ora_single(genes = genes$gene, gene_set = gene_set_all$gene, universe = universe$gene)
+ura_ai_all <- ura_single(genes = genes$gene, gene_set = gene_set_all$gene, universe = universe$gene)
+
+ora_ai_den <- ora_single(genes = genes$gene, gene_set = gene_set_den$gene, universe = universe$gene)
+ura_ai_den <- ura_single(genes = genes$gene, gene_set = gene_set_den$gene, universe = universe$gene)
+
+ora_ai_nea <- ora_single(genes = genes$gene, gene_set = gene_set_nea$gene, universe = universe$gene)
+ura_ai_nea <- ura_single(genes = genes$gene, gene_set = gene_set_nea$gene, universe = universe$gene)
+
+### as a check, the intersection of genes and gene_set should be x
+# remove duplicates and take only gene column
+ai_infert_genes <- read.table("/gpfs/gibbs/pi/tucci/mpb63/AI_deserts/infertility_gene_intersect/Sankararaman_2016_NEA_deserts_intersect_infertilitygenes.bed", header = FALSE)
+colnames(ai_infert_genes) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+x <- ai_infert_genes %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes$gene, gene_set_nea$gene)
+
+```
+
+### Linkage Disequilibrium of lead variants
+
+First we need to subset our vcf files to the correct population and the correct range.
+
+We are using the range determined by locuszoom plots of 50kb to either side of the gene of interest -> found in locuszoom_genes.csv
+
+Based on this file I have generated a csv with the gene of interest, the population for which it is under selection, and the chr, start, and end of the range we want to subset to, and the lead variant we will calculate ld based on. -> r2_selection_windows.txt
+
+NOTE: vcftools requires you to have a header in your bed file!
+```{bash}
+
+while read gene pop chr start end var; do
+echo "module load VCFtools; vcftools --gzvcf /gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/vcf_files/PIBv1_chr${chr}_final_phased.SNP_only.vcf.gz --bed selection_windows/${gene}_window.bed --keep pop_files/pop_$pop.txt --recode --out r2/${pop}_$gene"
+done <r2_selection_windows.txt > r2_selection_vcfs.txt
+
+module load dSQ
+
+dsq --job-file r2_selection_vcfs.txt --account=tucci --output log_files/r2_selection_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name r2_selection_vcfs --partition day -t 1:00:00 --mem-per-cpu 8GB --cpus-per-task=1 --batch-file r2_selection_vcfs.sh
+
+```
+
+Next calculate r2 using plink 1.9
+
+```{bash}
+
+while read gene pop chr start end var; do
+echo "module load PLINK/1.9b_6.21-x86_64; plink --vcf r2/${pop}_$gene.recode.vcf --allow-no-sex --snps-only --r2 inter-chr --ld-snp $var --ld-window-r2 0 --out r2/${pop}_$gene"
+done <r2_selection_windows.txt > ld_calc_vcfs.txt
+
+dsq --job-file ld_calc_vcfs.txt --account=tucci --output log_files/ld_calc_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name ld_calc_vcfs --partition day -t 1:00:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file ld_calc_vcfs.sh
+
+```
+
+Use locuszoom r scripts to produce plots
+
+##### Allele frequency calculations 
+```{bash}
+while read chr pos; do
+	echo "module load VCFtools; vcftools --gzvcf /gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/vcf_files/PIBv1_chr${chr}_final_phased.SNP_only.vcf.gz --positions infertility_rsid.txt --recode --out rsid_chr${chr}"
+done<infertility_rsid.txt > rsid_vcf.txt
+
+
+dsq --job-file rsid_vcf.txt --account=tucci --output log_files/rsid_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name rsid_vcfs --partition day -t 1:00:00 --mem-per-cpu 8GB --cpus-per-task=1 --batch-file rsid_vcfs.sh
+
+module load BCFtools
+
+module load tabix
+
+for i in *.vcf; do
+bgzip -c $i > $i.gz
+done
+
+for i in *.vcf.gz; do
+tabix -p vcf $i
+done
+
+ls *.vcf.gz > rsid_vcf_list.txt
+bcftool concat --file-list rsid_vcf_list.txt -o all_rsids
+
+while read file pop; do
+echo "module load VCFtools; vcftools --vcf all_rsids.vcf --keep ../pop_files/$file --recode --out $pop"
+done<pop_files.txt > vcf_bypop.txt
+
+dsq --job-file vcf_bypop.txt --account=tucci --output log_files/vcf_bypop-%A_%2a-%N.out  --mail-type ALL --job-name vcf_bypop --partition scavenge -t 00:30:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file vcf_bypop.sh
+
+while read file pop; do
+echo "module load VCFtools; vcftools --vcf $pop.recode.vcf --freq --out $pop"
+done<pop_files.txt > freq_bypop.txt
+
+dsq --job-file freq_bypop.txt --account=tucci --output log_files/freq_bypop-%A_%2a-%N.out  --mail-type ALL --job-name freq_bypop --partition scavenge -t 00:30:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file freq_bypop.sh
+
+```
+

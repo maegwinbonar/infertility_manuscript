@@ -1,0 +1,91 @@
+---
+title: "AI Deserts - Overlap with Infertility-Associated Loci"
+author: "Maegwin Bonar"
+date: "2025-07-11"
+output:
+  html_document:
+    highlight: breezedark
+    css:
+      - "styles.css"
+    toc: yes
+    toc_float: no
+    toc_depth: 5
+editor_options:
+  markdown:
+    wrap: 120
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval                        = FALSE,
+  echo                        = TRUE,
+  cache                       = TRUE, # tidy = TRUE,
+  class.output                = "bg-success"
+)
+```
+
+### Introduction
+
+We obtained Neanderthal introgression deserts from Sankararaman et al. (2016), and used a hypergeometric test in R to test over-representation of genes containing infertility-associated loci within introgression deserts.
+
+
+### AI deserts
+
+Use deserts from Sankararaman et al. 2016
+Input: Sankararaman_2016_NEA_deserts.bed
+
+Intersect Sankararaman et al. 2016 files with genecode bed files
+```{bash}
+
+bedtools intersect -wa -wb -a Sankararaman_2016_NEA_deserts.bed -b gencode.v38lift37.annotation.codingGENES_sorted.bed > Sankararaman_2016_NEA_deserts_intersect_genes.bed
+
+```
+
+Intersect with infertility genes. Only intersected with regions from Deserts from Sankararaman et al. 2016 
+```{bash}
+
+bedtools intersect -wa -wb -a Sankararaman_2016_NEA_deserts.bed -b infertility_genes.bed > Sankararaman_2016_NEA_intersect_infertilitygenes_2025.bed
+
+```
+
+In this case we will check whether genes associated with infertility are over-represented in genes overlapping with AI deserts
+```{r}
+
+## get the values for each parameter
+# we need `genes`, `gene_set`, and `universe`
+
+### genes - infertility genes
+genes <- infert_genes_all[1]
+
+### gene set - all genes in AI deserts NEA
+gene_set_nea<- read.table("Sankararaman_2016_NEA_deserts_intersect_genes.bed", header = FALSE)
+colnames(gene_set_nea) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+## remove duplicates
+gene_set_nea <- gene_set_nea %>%
+  distinct(gene)
+
+### universe - all genes
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+colnames(universe) <- c("chr", "start","end","ensembl", "gene")
+
+universe<-universe %>%
+  select(gene) %>%
+  distinct(gene)
+
+#### Test
+ora_ai_nea <- ora_single(genes = genes$gene, gene_set = gene_set_nea$gene, universe = universe$gene)
+ura_ai_nea <- ura_single(genes = genes$gene, gene_set = gene_set_nea$gene, universe = universe$gene)
+
+### as a check, the intersection of genes and gene_set should be x
+# remove duplicates and take only gene column
+ai_infert_genes <- read.table("Sankararaman_2016_NEA_deserts_intersect_infertilitygenes.bed", header = FALSE)
+colnames(ai_infert_genes) <- c("chr", "start","end","chr.y", "start.y","end.y","ensembl", "gene")
+
+x <- ai_infert_genes %>%
+  select(gene) %>%
+  distinct(gene)
+
+x_check = intersect(genes$gene, gene_set_nea$gene)
+
+```
