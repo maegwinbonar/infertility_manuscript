@@ -27,11 +27,11 @@ The repository is organized into the following sections:
 
 Please see the README.md file in each folder for detailed information about the corresponding analysis:
 
-- [Genetic Constraint](./genetic_constraint/README.md)
-- [Archaic Deserts](./ai_deserts/README.md)
-- [Selection Scans](./selection_scans/README.md)
-- [Linkage Disequilibrium](./ld/README.md)
-- [Allele Frequency](./allele_frequency/README.md)
+- [Genetic Constraint](./01_genetic_constraint/README.md)
+- [Archaic Deserts](./02_ai_deserts/README.md)
+- [Selection Scans](./_03selection_scans/README.md)
+- [Linkage Disequilibrium](./05_lingate_disequilibrium/README.md)
+- [Allele Frequency](./04_allele_frequency/README.md)
 
 ## Contact
 
