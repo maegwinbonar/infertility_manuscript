@@ -108,7 +108,6 @@ c<-ggplot(data = genes_const)+
 d<-ggarrange(a, b, c, nrow = 1)
 
 ggsave("plots/genes_constraint.pdf", d, width = 10, height = 4)
-#ggsave("plots/genes_constraint2.pdf", d, width = 10, height = 8)
 
 # Compute median pLI per group
 medians_pLI <- genes_const %>%
@@ -170,11 +169,10 @@ c<-ggplot(data = genes_const)+
 
 
 d<-ggarrange(a, b, c, nrow = 1)
-plot_genes <- annotate_figure(d, top = text_grob("Constraint metrics for 24 infertility genes", 
+plot_genes <- annotate_figure(d, top = text_grob("Constraint metrics for 25 infertility genes", 
                color = "black", face = "bold", size = 14))
 
 ggsave("plots/genes_constraint_m_f.pdf", plot_genes, width = 10, height = 6)
-ggsave("plots/genes_constraint_m_f.png", plot_genes, width = 10, height = 6)
 
 ```
 
@@ -304,7 +302,6 @@ plot_med2 <- annotate_figure(plot_med, top = text_grob("Median genetic constrain
 
 plot_fig1b <- ggarrange(a, b, c, p4, p5, p6, ncol = 3, nrow = 2)
 
-ggsave("plots/sample_genes_constraint_med.png", plot_med2, width = 10, height = 4)
 ggsave("plots/sample_genes_constraint_med.pdf", plot_med, width = 10.5, height = 4)
 
 ggsave("plots/constraint_fig1b.pdf", plot_fig1b, width = 11, height = 5)
@@ -328,9 +325,8 @@ p_LOEUF
 ## what proportion of the distribution >= my value
 p_zscore <- mean(results$med_zscore >= genes_results$med_zscore)
 p_zscore
-#save.image("constraints.RData")
 
-#load("constraints.RData")
+#save.image("constraints.RData")
 ```
 
 
