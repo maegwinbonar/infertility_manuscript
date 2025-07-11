@@ -1,0 +1,338 @@
+---
+title: "Genetic Contraint Analysis"
+author: "Maegwin Bonar"
+date: "2025-02-12"
+output:
+  html_document:
+    highlight: breezedark
+    css:
+      - "styles.css"
+    toc: yes
+    toc_float: no
+    toc_depth: 5
+editor_options:
+  markdown:
+    wrap: 120
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval                        = FALSE,
+  echo                        = TRUE,
+  cache                       = TRUE, # tidy = TRUE,
+  class.output                = "bg-success"
+)
+knitr::opts_knit$set(
+  root.dir = rprojroot::find_rstudio_root_file()
+)
+```
+
+### Introduction
+
+We expect that genes associated with infertility will be highly constrained
+
+Assess constraint using two metrics: LOEUF and lofpLI
+
+using table to constraints from gnomeAD
+
+
+### Libraries
+```{r, message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggpubr)
+```
+
+
+### 1. Read in the data
+```{r}
+## read in the table of constraints from gnomeAD
+gnomeAD_const <- read.table("/gpfs/gibbs/pi/tucci/pfr8/resources/gnomAD/v4.0.0/gnomad.v4.1.constraint_metrics.tsv", header = TRUE)
+head(gnomeAD_const)
+
+## read in table of genes of interest (infertility)
+genes_infert <- read.table("/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/infertility_analyses_2025/infertilityGeneList_unique.txt", header = FALSE)
+colnames(genes_infert) <- c("gene", "type")
+```
+
+### 2. Genetic constraints on genes assoicated with infertility
+
+Get the constraint metrics for each gene of interest
+```{r}
+# left join with genes of interest
+genes_const <- na.omit(left_join(genes_infert, gnomeAD_const, by = "gene"))
+
+mn_pLI <- mean(genes_const$lof.pLI)
+mn_LOEUF <- mean(genes_const$lof.oe_ci.upper)
+
+med_pLI <- median(genes_const$lof.pLI)
+min(genes_const$lof.pLI)
+max(genes_const$lof.pLI)
+med_LOEUF <- median(genes_const$lof.oe_ci.upper)
+min(genes_const$lof.oe_ci.upper)
+max(genes_const$lof.oe_ci.upper)
+
+mn_zscore <- mean(genes_const$lof.z_score)
+med_zscore <- median(genes_const$lof.z_score)
+min(genes_const$lof.z_score)
+max(genes_const$lof.z_score)
+
+genes_results <- data.frame(mn_pLI, med_pLI, mn_LOEUF, med_LOEUF, mn_zscore, med_zscore)
+
+### Plot the distribution of metrics
+# lofpLI
+a<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.pLI), binwidth = 0.1)+
+  #ylim(0,1)+
+  #geom_vline(xintercept = mn_pLI, colour = "blue")+
+  geom_vline(xintercept = med_pLI, colour = "#C05227", linewidth = 1.2)+
+  #facet_wrap(~type, nrow = 2)+
+  theme_pubr()
+  
+# LOEUF
+b<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.oe_ci.upper), binwidth = 0.1)+
+  #geom_vline(xintercept = mn_LOEUF, colour = "blue")+
+  geom_vline(xintercept = med_LOEUF, colour = "#C05227", linewidth = 1)+
+  #facet_wrap(~type, nrow = 2)+
+  theme_pubr()
+
+# zscore
+c<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.z_score), binwidth = 1)+
+  #geom_vline(aes(xintercept = mn_zscore, colour = "mean"))+
+  geom_vline(aes(xintercept = med_zscore), colour = "#C05227", linewidth = 1)+
+  #scale_colour_manual(name = "statistics", values = c(median = "#1B3F74", mean = "blue"))+
+  #facet_wrap(~type, nrow = 2)+
+  theme_pubr()
+
+
+d<-ggarrange(a, b, c, nrow = 1)
+
+ggsave("plots/genes_constraint.pdf", d, width = 10, height = 4)
+#ggsave("plots/genes_constraint2.pdf", d, width = 10, height = 8)
+
+# Compute median pLI per group
+medians_pLI <- genes_const %>%
+  group_by(type) %>%
+  summarize(med_pLI = median(lof.pLI, na.rm = TRUE))
+
+medians_LOEUF <- genes_const %>%
+  group_by(type) %>%
+  summarize(med_LOEUF = median(lof.oe_ci.upper, na.rm = TRUE))
+
+medians_zscore <- genes_const %>%
+  group_by(type) %>%
+  summarize(med_zscore = median(lof.z_score, na.rm = TRUE))
+
+# Plot with facet-specific vlines
+ggplot(data = genes_const) +
+  geom_histogram(aes(x = lof.pLI), binwidth = 0.1) +
+  geom_vline(data = medians, aes(xintercept = med_pLI), 
+             colour = "#C05227", linewidth = 1.2) +
+  facet_wrap(~type, nrow = 2) +
+  theme_pubr() +
+  theme(axis.title.y = element_blank())
+
+# lofpLI
+a<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.pLI), binwidth = 0.1)+
+  #ylim(0,1)+
+  #geom_vline(xintercept = mn_pLI, colour = "blue")+
+  geom_vline(data = medians_pLI, 
+             aes(xintercept = med_pLI), colour = "#C05227", linewidth = 1.2)+
+  facet_wrap(~type, nrow = 2)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+  
+# LOEUF
+b<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.oe_ci.upper), binwidth = 0.1)+
+  #geom_vline(xintercept = mn_LOEUF, colour = "blue")+
+  geom_vline(data=medians_LOEUF, aes(xintercept = med_LOEUF), colour = "#C05227", linewidth = 1)+
+  facet_wrap(~type, nrow = 2)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+
+# zscore
+c<-ggplot(data = genes_const)+
+  geom_histogram(aes(x=lof.z_score), binwidth = 1)+
+  #geom_vline(aes(xintercept = mn_zscore, colour = "mean"))+
+  geom_vline(data=medians_zscore, aes(xintercept = med_zscore), colour = "#C05227", linewidth = 1)+
+  #scale_colour_manual(name = "statistics", values = c(median = "#1B3F74", mean = "blue"))+
+  facet_wrap(~type, nrow = 2)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+
+
+d<-ggarrange(a, b, c, nrow = 1)
+plot_genes <- annotate_figure(d, top = text_grob("Constraint metrics for 24 infertility genes", 
+               color = "black", face = "bold", size = 14))
+
+ggsave("plots/genes_constraint_m_f.pdf", plot_genes, width = 10, height = 6)
+ggsave("plots/genes_constraint_m_f.png", plot_genes, width = 10, height = 6)
+
+```
+
+
+### 3. Compare to background distribution
+
+Sample from whole gene set (including infertility genes) the same number of genes (24)
+Generate distribution of constraint metrics for sampled set
+Repeat 10,000 times to generate confidence intervals around the distribution
+
+```{r}
+
+#get the list of genes from the gnomeAD data
+gnomeAD_clean <- na.omit(gnomeAD_const)
+gnomeAD_clean_genes <- unique(gnomeAD_const$gene)
+
+ggplot(data = gnomeAD_clean)+
+  geom_histogram(aes(x=lof.pLI))
+
+ggplot(data = gnomeAD_clean)+
+  geom_histogram(aes(x=lof.z_score))
+
+# number of iterations
+num_iterations <- 10000
+
+# results list
+results <- data.frame(mn_pLI = integer(num_iterations), 
+                      med_pLI = integer(num_iterations),
+                      mn_LOEUF = integer(num_iterations),
+                      med_LOEUF = integer(num_iterations),
+                      mn_zscore = integer(num_iterations),
+                      med_zscore = integer(num_iterations))
+
+# Initialize the progress bar
+pb <- txtProgressBar(min = 0, max = num_iterations, style = 3)
+
+# Loop through each iteration
+for (i in 1:num_iterations) {
+  # Randomly sample individuals from the dataframe
+  sampled_genes <- sample(gnomeAD_clean_genes, 25, replace = FALSE)
+
+  # get genetic constraints for this set of genes
+  sample_genes_const <- na.omit(gnomeAD_const[ gnomeAD_const$gene %in% sampled_genes,])
+  
+  # calculate summary metrics
+  mn_pLI <- mean(sample_genes_const$lof.pLI)
+  mn_LOEUF <- mean(sample_genes_const$lof.oe_ci.upper)
+
+  med_pLI <- median(sample_genes_const$lof.pLI)
+  med_LOEUF <- median(sample_genes_const$lof.oe_ci.upper)
+  
+  mn_zscore <- mean(sample_genes_const$lof.z_score)
+  med_zscore <- median(sample_genes_const$lof.z_score)
+
+  # assign genetic constraint metrics to results list
+  results[i,] <- c(mn_pLI, med_pLI, mn_LOEUF, med_LOEUF, mn_zscore, med_zscore)
+  # Update the progress bar
+  setTxtProgressBar(pb, i)
+}
+
+close(pb)  # Close the progress bar after the loop
+
+```
+
+Plot the background set compared to infertility genes
+
+```{r}
+### Plot the distribution of metrics
+
+### Mean
+# lofpLI
+p1<-ggplot(data = results)+
+  geom_histogram(aes(x=mn_pLI), binwidth = 0.02)+
+  geom_vline(xintercept = genes_results$mn_pLI, colour = "#C05227")+
+  theme_bw()
+  
+# LOEUF
+p2<-ggplot(data = results)+
+  geom_histogram(aes(x=mn_LOEUF), binwidth = 0.02)+
+  geom_vline(xintercept = genes_results$mn_LOEUF, colour = "#C05227")+
+  theme_bw()
+
+# zscore
+p3<-ggplot(data = results)+
+  geom_histogram(aes(x=mn_zscore), binwidth = 0.1)+
+  geom_vline(xintercept = genes_results$mn_zscore, colour = "#C05227")+
+  theme_bw()
+
+plot_mean<-ggarrange(p1, p2, p3, nrow = 1)
+plot_mean2 <- annotate_figure(plot_mean, top = text_grob("Mean genetic constraints sampled from gnomeAD genes", 
+               color = "black", face = "bold", size = 14))
+
+ggsave("plots/sample_genes_constraint_mean.pdf", plot_mean2, width = 10, height = 4)
+
+
+### Median
+# lofpLI
+p4<-ggplot(data = results)+
+  geom_histogram(aes(x=med_pLI), binwidth = 0.05)+
+  geom_vline(xintercept = genes_results$med_pLI, colour = "#C05227", linewidth = 1)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+  
+# LOEUF
+p5<-ggplot(data = results)+
+  geom_histogram(aes(x=med_LOEUF), binwidth = 0.05)+
+  geom_vline(xintercept = genes_results$med_LOEUF, colour = "#C05227", linewidth = 1)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+
+# zscore
+p6<-ggplot(data = results)+
+  geom_histogram(aes(x=med_zscore), binwidth = 0.1)+
+  geom_vline(xintercept = genes_results$med_zscore, colour = "#C05227", linewidth = 1)+
+  theme_pubr()+
+  theme(
+    axis.title.y = element_blank()
+  )
+
+plot_med<-ggarrange(p4, p5, p6, nrow = 1)
+plot_med2 <- annotate_figure(plot_med, top = text_grob("Median genetic constraints sampled from gnomeAD genes", 
+               color = "black", face = "bold", size = 14))
+
+plot_fig1b <- ggarrange(a, b, c, p4, p5, p6, ncol = 3, nrow = 2)
+
+ggsave("plots/sample_genes_constraint_med.png", plot_med2, width = 10, height = 4)
+ggsave("plots/sample_genes_constraint_med.pdf", plot_med, width = 10.5, height = 4)
+
+ggsave("plots/constraint_fig1b.pdf", plot_fig1b, width = 11, height = 5)
+
+```
+
+
+MonteCarlo statistical test
+Check effect size
+
+```{r}
+## for pLI
+## what proportion of the distribution =< my value
+p_pLI <- mean(results$med_pLI >= genes_results$med_pLI)
+p_pLI
+## for LOEUF
+## what proportion of the distribution >= my value
+p_LOEUF <- mean(results$med_LOEUF <= genes_results$med_LOEUF)
+p_LOEUF
+## for zscore
+## what proportion of the distribution >= my value
+p_zscore <- mean(results$med_zscore >= genes_results$med_zscore)
+p_zscore
+#save.image("constraints.RData")
+
+#load("constraints.RData")
+```
+
+
