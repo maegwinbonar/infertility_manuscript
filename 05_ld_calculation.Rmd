@@ -28,3 +28,38 @@ knitr::opts_knit$set(
 ```
 
 ### Introduction
+
+Here we calculate pairwise ld between lead variants from large GWAS for loci 50kb surrounding the gene containing the lead variant for the population under which there are selection scan outliers nearby.
+
+First we need to subset our vcf files to the correct population and the correct range.
+
+We are using the range determined by locuszoom plots of 50kb to either side of the gene of interest
+
+Based on this file I have generated a csv with the gene of interest, the population for which it is under selection, and the chr, start, and end of the range we want to subset to, and the lead variant we will calculate ld based on.
+
+NOTE: vcftools requires you to have a header in your bed file!
+```{bash}
+
+while read gene pop chr start end var; do
+echo "module load VCFtools; vcftools --gzvcf PIBv1_chr${chr}_final_phased.SNP_only.vcf.gz --bed selection_windows/${gene}_window.bed --keep pop_files/pop_$pop.txt --recode --out r2/${pop}_$gene"
+done <r2_selection_windows.txt > r2_selection_vcfs.txt
+
+module load dSQ
+
+dsq --job-file r2_selection_vcfs.txt --account=tucci --output log_files/r2_selection_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name r2_selection_vcfs --partition day -t 1:00:00 --mem-per-cpu 8GB --cpus-per-task=1 --batch-file r2_selection_vcfs.sh
+
+```
+
+Next calculate r2 using plink 1.9
+
+```{bash}
+
+while read gene pop chr start end var; do
+echo "module load PLINK/1.9b_6.21-x86_64; plink --vcf r2/${pop}_$gene.recode.vcf --allow-no-sex --snps-only --r2 inter-chr --ld-snp $var --ld-window-r2 0 --out r2/${pop}_$gene"
+done <r2_selection_windows.txt > ld_calc_vcfs.txt
+
+dsq --job-file ld_calc_vcfs.txt --account=tucci --output log_files/ld_calc_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name ld_calc_vcfs --partition day -t 1:00:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file ld_calc_vcfs.sh
+
+```
+
+Use locuszoom r scripts to produce plots
