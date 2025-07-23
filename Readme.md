@@ -15,7 +15,7 @@ Description of the scripts in order of execution:
 - **01_constraint** - Tests for genetic constraint on 25 genes containing IAL
 - **02_ai_deserts** - Overlap IAL with archaic deserts from Sankararaman et al. 2014
 - **selection scans** - PBS and XP-EHH methods
-- **03_positive_selection** - analysis of PBS and XP-EHH, generating heatmaps
+- **03_positive_selection** - Analysis of PBS and XP-EHH, generating heatmaps
 - **04_allele_frequency** - Allele frequencies of risk alleles
 - **05_ld_calculation** - Calculating r2 for IAL
 
