@@ -78,3 +78,4 @@ dsq --job-file freq_bypop.txt --account=tucci --output log_files/freq_bypop-%A_%
 
 ```
 
+Use allele_freq_map.R to generate pie charts of allele frequencies.
