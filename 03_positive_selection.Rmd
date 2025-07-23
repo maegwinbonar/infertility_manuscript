@@ -22,9 +22,7 @@ knitr::opts_chunk$set(
   cache                       = TRUE, # tidy = TRUE,
   class.output                = "bg-success"
 )
-knitr::opts_knit$set(
-  root.dir = rprojroot::find_rstudio_root_file()
-)
+
 ```
 
 ### Introduction
@@ -52,8 +50,8 @@ library(ggrepel)
 Use get_keygenes_wwpops.R to generate dataframe containing 10kb windows of genes of interest and thier pFCSs for each population of interest. 
 
 * Input:
-  + 1) .tsv containing the following columns: chr, start, end, population, FCS, log10_FCS, gene
-  + 2) .txt file of genes of interest
+  1. A .tsv containing the following columns: chr, start, end, population, FCS, log10_FCS, gene
+  2. A .txt file of genes of interest
 
 ```{r}
 #############
@@ -175,7 +173,7 @@ n = genes not under selection
 
 k = all infertility genes
 
-We will do this by region, looking at OCE, ESA, CSA, and EUR separately
+We will do this by region, looking at OCE, ESA, CSA, MDE, AMR, and EUR separately
 
 ```{r}
 
