@@ -49,7 +49,11 @@ library(ggrepel)
 
 ### 1. Generate Heatmaps
 
+Use get_keygenes_wwpops.R to generate dataframe containing 10kb windows of genes of interest and thier pFCSs for each population of interest. 
 
+* Input:
+  + 1) .tsv containing the following columns: chr, start, end, population, FCS, log10_FCS, gene
+  + 2) .txt file of genes of interest
 
 ```{r}
 #############
@@ -75,19 +79,6 @@ merged_df_window2$p_val <- cut(merged_df_window2$log10_FCS,
                         breaks = c(-Inf, 4, 5, Inf),
                         labels = c("<3",">4",">5"),
                         right = FALSE)
-
-#merged_df2$population <- gsub("\\bEA\\b","EAS", merged_df2$population)
-#merged_df2$population <- gsub("\\bISA\\b","ISEA", merged_df2$population)
-
-#merged_df2$population <- factor(merged_df2$population, levels = c("EAS","ISEA","Oceania","Sepik-Goroka","Kove","Nakanai-Mangseng","Mamusi","Ata","Melamela","Baining-Kagat","Baining-Mali","Lavongai-Mussau","Nailik-Notsi-Tigak","Saposa","Nasioi","Vella-Lavella","Malaita","Bellona-Rennell","Santa-Cruz","Tikopia"))
-
-# merged_df_window2$population <- fct_rev(factor(merged_df_window2$population, levels = c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima","CSA", 
-# "CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian","Oceania", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella")))
-# 
-# labels <- c("AMR", "AMR-Colombian-Karitiana-Surui","AMR-Pima", "AMR-Maya","CSA",
-# "CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR",
-# "EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "OCN",
-#                                                                   "OCN-Ata","OCN-Baining-Kagat","OCN-Baining-Mali","OCN-Bellona-Rennell","OCN-Kove","OCN-Lavongai-Mussau","OCN-Malaita","OCN-Mamusi","OCN-Melamela","OCN-Nailik-Notsi-Tigak","OCN-Nakanai-Mangseng","OCN-Nasioi","OCN-Santa-Cruz","OCN-Saposa","OCN-Sepik-Goroka","OCN-Tikopia","OCN-Vella-Lavella")
 
 merged_df_window2$population <- fct_rev(factor(merged_df_window2$population, levels = c("EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian","CSA", 
 "CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut","AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima", "Oceania", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella")))
