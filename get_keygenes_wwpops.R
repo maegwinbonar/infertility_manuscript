@@ -248,10 +248,8 @@ merged_df_key_genes <- process_window2(merged_df2)
 
 
 ############################################
-# SAVE here and open in run_FCS_AI_windowwd_Load.R
+# SAVE here and open in 03_positive_selection.Rmd
 #############################################
 save(merged_df, merged_df2, merged_df_key_genes, data_list, 
      file ="merged-windows2_10kb_heatmap_WWpop_FCS_0001.Rdata", 
      compress = "gzip", compression_level = 9)
-# to load 
-# load("heatmap_plot2_Neandertal.Rdata")
