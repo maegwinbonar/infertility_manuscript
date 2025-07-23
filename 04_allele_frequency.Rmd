@@ -1,0 +1,80 @@
+---
+title: "Allele Frequency Calculations"
+author: "Maegwin Bonar"
+date: "2025-07-23"
+output:
+  html_document:
+    highlight: breezedark
+    css:
+      - "styles.css"
+    toc: yes
+    toc_float: no
+    toc_depth: 5
+editor_options:
+  markdown:
+    wrap: 120
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval                        = FALSE,
+  echo                        = TRUE,
+  cache                       = TRUE, # tidy = TRUE,
+  class.output                = "bg-success"
+)
+
+```
+
+### Introduction
+
+Here we are calculating allele frequency for lead variants identified through large GWAS. We then generate pie charts to illustrate the allele frequencies in our populations.
+
+Subset the .vcfs to only include our lead variants
+```{bash}
+while read chr pos; do
+	echo "module load VCFtools; vcftools --gzvcf PIBv1_chr${chr}_final_phased.SNP_only.vcf.gz --positions infertility_rsid.txt --recode --out rsid_chr${chr}"
+done<infertility_rsid.txt > rsid_vcf.txt
+
+dsq --job-file rsid_vcf.txt --account=tucci --output log_files/rsid_vcfs-%A_%2a-%N.out  --mail-type ALL --job-name rsid_vcfs --partition day -t 1:00:00 --mem-per-cpu 8GB --cpus-per-task=1 --batch-file rsid_vcfs.sh
+
+```
+
+Index subset vcfs
+```{bash}
+module load BCFtools
+module load tabix
+
+for i in *.vcf; do
+bgzip -c $i > $i.gz
+done
+
+for i in *.vcf.gz; do
+tabix -p vcf $i
+done
+
+```
+
+Concatenate all the vcfs
+```{bash}
+ls *.vcf.gz > rsid_vcf_list.txt
+bcftool concat --file-list rsid_vcf_list.txt -o all_rsids
+
+```
+
+Subset by population and calculate allele frequency
+```{bash}
+
+while read file pop; do
+echo "module load VCFtools; vcftools --vcf all_rsids.vcf --keep ../pop_files/$file --recode --out $pop"
+done<pop_files.txt > vcf_bypop.txt
+
+dsq --job-file vcf_bypop.txt --account=tucci --output log_files/vcf_bypop-%A_%2a-%N.out  --mail-type ALL --job-name vcf_bypop --partition scavenge -t 00:30:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file vcf_bypop.sh
+
+while read file pop; do
+echo "module load VCFtools; vcftools --vcf $pop.recode.vcf --freq --out $pop"
+done<pop_files.txt > freq_bypop.txt
+
+dsq --job-file freq_bypop.txt --account=tucci --output log_files/freq_bypop-%A_%2a-%N.out  --mail-type ALL --job-name freq_bypop --partition scavenge -t 00:30:00 --mem-per-cpu 4GB --cpus-per-task=1 --batch-file freq_bypop.sh
+
+```
+
