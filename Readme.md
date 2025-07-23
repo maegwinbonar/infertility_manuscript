@@ -19,7 +19,7 @@ Description of the scripts in order of execution:
 - **04_allele_frequency** - Allele frequencies of risk alleles
 - **05_ld_calculation** - Calculating r2 for IAL
 
-- **documentation** - Additional documentation and notes
+- **scripts** - Additional R Scripts and notes
 
 ## Contact
 

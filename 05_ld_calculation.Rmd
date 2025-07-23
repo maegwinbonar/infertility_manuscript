@@ -60,4 +60,4 @@ dsq --job-file ld_calc_vcfs.txt --account=tucci --output log_files/ld_calc_vcfs-
 
 ```
 
-Use locuszoom r scripts to produce plots
+Use locuszoom_r2.R script to produce plots
