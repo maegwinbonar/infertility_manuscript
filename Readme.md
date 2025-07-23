@@ -8,35 +8,23 @@ We compiled a list of 31 infertility-associated loci (IAL) (28 loci associated w
 
 ## Repository Structure
 
-The repository is organized into the following sections:
+This repository was made for reproducibility purposes, the full script for each analysis is provided in an .Rmd file and corresponding html.
 
-- **genetic constraint analysis** - Tests for genetic constraint on 25 genes containing IAL
-- **overlap with archaic deserts** - Overlap IAL with archaic deserts from Sankararaman et al. 2014
+Description of the scripts in order of execution:
+
+- **01_constraint** - Tests for genetic constraint on 25 genes containing IAL
+- **02_ai_deserts** - Overlap IAL with archaic deserts from Sankararaman et al. 2014
 - **selection scans** - PBS and XP-EHH methods
-- **linkage disequilibrium** - Calculating r2 for IAL
-- **allele frequency** - Allele frequencies of risk alleles
+- **03_positive_selection** - analysis of PBS and XP-EHH, generating heatmaps
+- **04_allele_frequency** - Allele frequencies of risk alleles
+- **05_ld_calculation** - Calculating r2 for IAL
+
 - **documentation** - Additional documentation and notes
-
-### Prerequisites
-```
-- R (version 4.0+)
-- Python (version 3.8+)
-```
-
-## Documentation
-
-Please see the README.md file in each folder for detailed information about the corresponding analysis:
-
-- [Genetic Constraint](./01_genetic_constraint/README.md)
-- [Archaic Deserts](./02_ai_deserts/README.md)
-- [Selection Scans](./_03selection_scans/README.md)
-- [Linkage Disequilibrium](./05_lingate_disequilibrium/README.md)
-- [Allele Frequency](./04_allele_frequency/README.md)
 
 ## Contact
 
 - **Author**: Maegwin Bonar
-- **Email**: maegwin.bonar@yale.edu
+- **Email**: maegwinbonar@gmail.com
 - **Institution**: Yale University
 
 ---
