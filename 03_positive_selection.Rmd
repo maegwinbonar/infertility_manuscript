@@ -1,5 +1,5 @@
 ---
-title: "Depletion of positive selection"
+title: "Selection Scan Analysis"
 author: "Maegwin Bonar"
 date: "2025-02-12"
 output:
@@ -29,13 +29,9 @@ knitr::opts_knit$set(
 
 ### Introduction
 
-We expect that genes associated with infertility will be underrepresented in positive selection scan hits
+We generate heatmaps of the selection scan outliers defined by pFCSs along genes containing infertiliyt-assocaited loci (IAL).
 
-We first need to adjust pFCS scores for FDR and then redo the selection values for the infertility genes
-
-Then we need to do a depletion test to measure depletion of positive selection in these genes
-
-Then we need to examine the positive selection hits we are getting (if any)
+We then do a hypergeometric test to determine if pFCS outliers are under- or over-represented in genes containing IAL.
 
 
 ### Libraries
@@ -51,126 +47,9 @@ library(data.table)
 library(ggrepel)
 ```
 
-### 1. Quantile rank of FCS_X2
-
-We are going with Choin et al. who define outlier SNPs as those with an FCS among the 1% highest of the genome.
-
-Plot the pFCS scores
-
-```{r}
-### read in the data
-path_ww = "/gpfs/gibbs/pi/tucci/mpb63/WWPops_2024_FCS"
-path_oc = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
-
-tempoc <- list.files(path = path_oc, pattern = "*FCS.tsv", full.names = TRUE)
-tempww <- list.files(path = path_ww, pattern = "*FCS.tsv", full.names = TRUE)
-
-#temp_all <- c(tempww, tempoc)
-
-pfcs_plots <- function(full_df_path) {
- name_plot <- gsub(pattern = "_PIBv1.*", "", basename(full_df_path))
-  full_df <- read_tsv(full_df_path, col_select = c(chr, start, end, population, FCS, log10_FCS, gene))
-  full_df <- na.omit(full_df)
-  
-  plot<-ggplot(data=full_df)+
-    geom_histogram(aes(x=FCS), binwidth = 0.01)+
-    ggtitle(name_plot)+
-    xlab("pFCS")+
-    theme_bw()
-  return(plot)
-}
-
-fcs_plots <- lapply(tempoc, pfcs_plots)
-fcs_plots_ww <- lapply(tempww, pfcs_plots)
-
-p<-ggarrange(plotlist = fcs_plots, ncol = 5, nrow = 4)
-ggsave("plots/pfcs_hist_OCE.png", width = 12, height = 10)
-
-p_EUR<-ggarrange(plotlist = fcs_plots_ww[21:29], ncol = 3, nrow = 3)
-ggsave("plots/pfcs_hist_EUR.png", width = 10, height = 8)
-
-p_CSA<-ggarrange(plotlist = fcs_plots_ww[1:10], ncol = 4, nrow = 3)
-ggsave("plots/pfcs_hist_CSA.png", width = 10, height = 8)
-
-p_EAS<-ggarrange(plotlist = fcs_plots_ww[11:20], ncol = 4, nrow = 3)
-ggsave("plots/pfcs_hist_EAS.png", width = 10, height = 8)
-
-save.image(file = "hist_pfcs.RData")
-
-```
-
-So based on the histograms of the p-values FDR correction isn't going to work. Going to work with Patrick and see what we can do about it. For now, we will simply use a stringent p-value for pFCS p=0.0001 moving forward.
-
-### 2. Manhattan plots of genes under positive selection
-
-After running run_plot_manhattan_Fcs_loop.R and run_plot_manhattan_Fcs_loop_OCE.R to generate Manhattan plots highlighting the genes under selection for each population we can group the plots into island groups for Oceania and worldwide regions.
+### 1. Generate Heatmaps
 
 
-#### Island groups for Oceania
-```{r}
-path = "/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/infertility_analyses_2025/plots"
-temp <- list.files(path = path, pattern = "*manhattan.png", full.names = TRUE)
-
-#in (A) New Guinean, (B) New Hanover and (C) New Ireland populations.
-rl <- lapply(list(temp[25], temp[15],temp[19]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
-ggsave("plots/OCE_NewGuinean_NewHanover_NewIreland.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
-
-#in West New Britain populations.
-rl <- lapply(list(temp[14], temp[20],temp[17], temp[1],temp[18]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
-ggsave("plots/OCE_WNewBritain.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
-
-#in East New Britain and Bougainville populations.
-rl <- lapply(list(temp[2], temp[3],temp[21], temp[24]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
-ggsave("plots/OCE_ENewGBritain_Bougainville.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
-
-#in Solomon Islands populations.
-rl <- lapply(list(temp[27], temp[16],temp[4], temp[23], temp[26]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =1))
-ggsave("plots/OCE_SolomonIslands.png", p1, width = 10, height = 9, dpi = 300, limitsize = FALSE)
-
-```
-
-#### Central South Asia
-```{r}
-#CSA all 
-rl <- lapply(list(temp[5], temp[6],temp[7], temp[8], temp[9],temp[10],
-                  temp[11], temp[12],temp[13],temp[14]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =4))
-ggsave("plots/CSA_manhattan_all.png", p1, width = 15, height = 4, dpi = 300, limitsize = FALSE)
-
-```
-
-#### East Asia
-```{r}
-#CSA all 
-rl <- lapply(list(temp[15], temp[16],temp[17], temp[18], temp[19],temp[20],
-                  temp[21], temp[22],temp[23],temp[24]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =4))
-ggsave("plots/EAS_manhattan_all.png", p1, width = 15, height = 4, dpi = 300, limitsize = FALSE)
-
-```
-
-#### European
-```{r}
-#CSA all 
-rl <- lapply(list(temp[25], temp[26],temp[27], temp[28], temp[29],temp[30],
-                  temp[31], temp[32],temp[33]), png::readPNG)
-gl <- lapply(rl, grid::rasterGrob)
-p1<-do.call(gridExtra::grid.arrange, c(gl, ncol =3))
-ggsave("plots/EUR_manhattan_all.png", p1, width = 10, height = 4, dpi = 300, limitsize = FALSE)
-
-```
-
-### Heatmaps
 
 ```{r}
 #############
