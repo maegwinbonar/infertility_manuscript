@@ -157,96 +157,13 @@ ggsave("plots/infertility_genes_10kb_heatmap_WWpops_F_0001_new2.pdf", heatmap_pl
 infertility_F0001 <- unique(gene_labels_df$gene)
 write.table(infertility_F0001, "infertility_genes_FCS_0.0001.tsv", quote = FALSE, col.names = FALSE, row.names = FALSE)
 
-## save gene list per region for enrichment analysis
+## save gene list per region for over/under-representation analysis
 infertility_F0001_regions <- merged_df2[merged_df2$p0.0001==TRUE,]
 write.table(infertility_F0001_regions, "infertility_genes_regions_FCS_0.0001.tsv", quote = FALSE, col.names = FALSE, row.names = FALSE)
 
 ```
 
-```{r, message=FALSE}
-path1 = "/gpfs/gibbs/pi/tucci/mpb63/infertility_2024/WWPops_bed_files"
-path2 = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
-
-temp1 <- list.files(path = path1, pattern = "*0.0001.tsv", full.names = TRUE)
-temp2 <- list.files(path = path2, pattern = "*0.0001.tsv", full.names = TRUE)
-
-temp3 <- c(temp1, temp2)
-
-data_list <- list()
-
-#arch <- "Neandertal"
-
-for (i in 1:length(temp3)) {
-  name <- gsub(pattern = ".tsv", "", basename(temp3[i]))
-  df <- read_tsv(temp3[[i]])
-  df <- df %>%
-    select(chr, start, end, population, FCS, log10_FCS, gene)
-  df <- na.omit(df)
-  #df <- df %>%
-  # filter(str_detect(TractID, arch))
-  data_list[[i]] <- df
-}
-
-all_f0001 <- do.call("rbind", data_list)
-
-# list of all infertility genes
-infert_genes_all <- read.table("infertilityGeneList_unique.txt")
-colnames(infert_genes_all) <- c("gene","cohort")
-
-all_f0001$population <- factor(all_f0001$population, levels = c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya", "AMR-Pima","CSA", 
-"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR","EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","Oceania", "MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "Ata","Baining-Kagat","Baining-Mali","Bellona-Rennell","Kove","Lavongai-Mussau","Malaita","Mamusi","Melamela","Nailik-Notsi-Tigak","Nakanai-Mangseng","Nasioi","Santa-Cruz","Saposa","Sepik-Goroka","Tikopia","Vella-Lavella"))
-
-labels <- c("AMR", "AMR-Colombian-Karitiana-Surui", "AMR-Maya","AMR-Pima", "CSA",
-"CSA-Balochi", "CSA-Brahui", "CSA-Burusho", "CSA-Hazara", "CSA-Kalash", "CSA-Makrani", "CSA-Pathan", "CSA-Sindhi", "CSA-Uygur","EAS", "EAS-Cambodian-Dai-Lahu", "EAS-Han-Tujia", "EAS-Japanese", "EAS-Miao-She", "EAS-Mongolian-Xibo", "EAS-NorthernHan-Tu-Yi-Naxi", "EAS-Oroqen-Daur-Hezhen", "EAS-Paiwan-Atayal", "EAS-Yakut", "EUR",
-"EUR-Adygei", "EUR-Basque", "EUR-French", "EUR-Italian-Bergamo", "EUR-Orcadian", "EUR-Russian", "EUR-Sardinian", "EUR-Tuscan","MDE", "MDE-Bedouin", "MDE-Druze", "MDE-Mozabite", "MDE-Palestinian", "OCN",
-                                                                  "OCN-Ata","OCN-Baining-Kagat","OCN-Baining-Mali","OCN-Bellona-Rennell","OCN-Kove","OCN-Lavongai-Mussau","OCN-Malaita","OCN-Mamusi","OCN-Melamela","OCN-Nailik-Notsi-Tigak","OCN-Nakanai-Mangseng","OCN-Nasioi","OCN-Santa-Cruz","OCN-Saposa","OCN-Sepik-Goroka","OCN-Tikopia","OCN-Vella-Lavella")
-
-
-genes_f0001 <- all_f0001 %>%
-    filter(gene %in% infert_genes_all$gene)
-
-
-plot<-ggplot(data=genes_f0001, aes(x=gene))+
-  geom_bar()+
-  #facet_wrap(~population)+
-  xlab("candidate infertility genes")+
-  ylab("count of outlier windows")+
-  geom_text(stat = 'count', aes(label = stat(count), vjust = -0.2), size = 3)+
-  theme_bw()
-plot
-
-ggsave("plots/pFCS_0001_hist1.pdf", plot, width = 12, height = 6, dpi = 300, limitsize = FALSE)
-
-library(viridis)
-
-plot2<-ggplot(data=genes_f0001, aes(x=gene, fill=population))+
-  geom_bar()+
-  xlab("candidate infertility genes")+
-  ylab("count of outlier windows")+
-  #scale_fill_discrete(labels = labels)+
-  scale_fill_viridis(discrete = T) +
-  #geom_text(stat = 'count', position = "stack", vjust = -0.2, aes(label = stat(count)), size = 3)+
-  theme_bw()
-plot2
-
-ggsave("plots/pFCS_0001_hist2.pdf", plot2, width = 16, height = 6, dpi = 300, limitsize = FALSE)
-
-plot3<-ggplot(data=genes_f0001, aes(x=population, fill=gene))+
-  geom_bar()+
-  xlab("")+
-  ylab("count of outlier windows")+
-  #scale_fill_discrete(labels = labels)+
-  scale_fill_viridis(discrete = T) +
-  #geom_text(stat = 'count', position = "stack", vjust = -0.2, aes(label = stat(count)), size = 3)+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =10))
-plot3
-ggsave("plots/pFCS_0001_hist3.pdf", plot3, width = 10, height = 6, dpi = 300, limitsize = FALSE)
-
-```
-
-
-### Under-representation Analysis
+### 2. Under-representation Analysis
 
 We will do an over/under-representation analysis to determine if infertility genes are under-represented in genes identified as being under positive selection
 
@@ -321,7 +238,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/mpb63/OceanicPops_2024_FCS"
+path = "OceanicPops_2024_FCS"
 temp <- list.files(path = path, pattern = "*0.0001.tsv", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -342,7 +259,7 @@ x <- OCE_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
@@ -366,7 +283,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+path = "WWpop_2024_FCS"
 temp <- list.files(path = path, pattern = "^CSA.*\\_0.0001.tsv$", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -387,7 +304,7 @@ x <- CSA_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
@@ -411,7 +328,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+path = "WWpop_2024_FCS"
 temp <- list.files(path = path, pattern = "^EAS.*\\_0.0001.tsv$", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -432,7 +349,7 @@ x <- EAS_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
@@ -456,7 +373,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+path = "WWpop_2024_FCS"
 temp <- list.files(path = path, pattern = "^EUR.*\\_0.0001.tsv$", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -477,7 +394,7 @@ x <- EUR_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
@@ -501,7 +418,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/selection-scans/WW_pops_FCS"
+path = "WW_pops_FCS"
 temp <- list.files(path = path, pattern = "^AMR.*\\_0.0001.tsv$", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -522,7 +439,7 @@ x <- AMR_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
@@ -546,7 +463,7 @@ genes <- infert_genes_all[1]
 
 ### gene set - all genes under positive selection
 # get all .FCS_0.0001.tsv files for all populations
-path = "/gpfs/gibbs/pi/tucci/dt637/hg19_scikit-allel_individualPOP/Selection_2024/WWpop_2024_FCS"
+path = "WWpop_2024_FCS"
 temp <- list.files(path = path, pattern = "^MDE.*\\_0.0001.tsv$", full.names = TRUE)
 
 df_list <- lapply(temp, get_genes_FCS)
@@ -567,7 +484,7 @@ x <- MDE_genes_FCS %>%
 x_check = intersect(genes, gene_set)
 
 ### universe - all genes
-universe<- read.table("/gpfs/gibbs/pi/tucci/mpb63/Maegwin_selection-scans/key_files/gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
+universe<- read.table("gencode.v38lift37.annotation.codingGENES_sorted.bed", header = FALSE)
 colnames(universe) <- c("chr", "start","end","ensembl", "gene")
 
 universe<-universe %>%
